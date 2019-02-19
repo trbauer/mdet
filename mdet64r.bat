@@ -1,0 +1,1 @@
+@.\builds\vs2017-64\Release\mdet64.exe %*

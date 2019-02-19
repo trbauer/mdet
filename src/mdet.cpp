@@ -109,8 +109,8 @@ bool motion_detector::detecting_motion() {
   double adiff_susm = cv::sum(absdiff)[0];
   double adiff_ratio = adiff_susm/absdiff.size().area();
   // TODO: remove once the HUD works
-  if (color_frames.total % 32 ==  0)
-    std::cout << std::fixed << std::setprecision(3) << "DIFF: " << adiff_ratio << "\n";
+  // if (color_frames.total % 32 ==  0)
+  //  std::cout << std::fixed << std::setprecision(3) << "DIFF: " << adiff_ratio << "\n";
 
   min_motion_diff = std::min(adiff_ratio,min_motion_diff);
   max_motion_diff = std::max(adiff_ratio,max_motion_diff);
@@ -180,12 +180,12 @@ void motion_detector::capture_video_body(std::string file_name) {
     for (int i = 0; i < sizeof(FOUR_CCS)/sizeof(FOUR_CCS[0]); i++) {
       log("trying ", FOUR_CCS[i]);
       if (open_video_output(FOUR_CCS[i])) {
-        log("opened video (in ",FOUR_CCS[i],"): now the preferred format");
+        log("opened video (in ",FOUR_CCS[i],")");
         break;
       }
     }
     if (!vw.isOpened()) {
-      std::cerr << "failed to open video writer after several tries; giving up\n";
+      log("ERROR: failed to open video writer after several tries; giving up");
       return;
     }
   }
@@ -217,6 +217,10 @@ void motion_detector::capture_video_body(std::string file_name) {
       break;
     }
 
+    if (hud_enabled) {
+      draw_hud(elapsed);
+    }
+
     last_elapsed = elapsed;
   }
   vw.release();
@@ -235,7 +239,7 @@ void motion_detector::calibrate_motion_threshold()
   log("     setting threshold to ",format(motion_threshold,0,3));
 }
 
-void motion_detector::draw_hud () {
+void motion_detector::draw_hud (double video_offset) {
   hud_draw_cost_estimate.start();
 
   // zero it
@@ -269,23 +273,37 @@ void motion_detector::draw_hud () {
     point(BASE_X,               threshold_y),
     point(BASE_X + GRAPH_WIDTH, threshold_y),
     YELLOW);
+  auto colorForValue = [&](double value) {
+    double t = std::min(1.0,value/motion_threshold);
+    return cv::Scalar(
+      toInt((1.0-t*t)*255.0),
+      0,
+      toInt(t*t*255.0)
+    );
+  };
   cv::Point last = point(valueToHeight(motion_samples.oldest()),BASE_X);
   motion_samples.for_each(
-    [&] (const double &d) {
-      cv::Point this_point = point(last.x + DX, valueToHeight(d));
-      double t = std::min(1.0,d/motion_threshold);
-      cv::Scalar auto_color(
-        toInt((1.0-t*t)*255.0),
-        0,
-        toInt(t*t*255.0)
-      );
+    [&] (const double &y) {
+      cv::Point this_point = point(last.x + DX, valueToHeight(y));
+
       // auto &color = 
       //   d >= motion_threshold ? RED :
       //   d >= 0.8*motion_threshold ? YELLOW :
       //   GREEN;
-      cv::line(stats_window,last,this_point,auto_color);
+      cv::line(stats_window,last,this_point,colorForValue(y));
       last = this_point;
     });
+
+  auto last_motion = motion_samples.newest();
+  auto s = format(last_motion,0,3);
+  cv::putText(stats_window, s, 
+    cv::Point(20,20), cv::FONT_HERSHEY_PLAIN, 1.0, colorForValue(last_motion));
+  if (video_offset != 0.0) {
+    std::stringstream voff;
+    voff << "recording (" << format(video_offset,0,1) << ")";
+    cv::putText(stats_window, voff.str(), 
+      cv::Point(20,60), cv::FONT_HERSHEY_PLAIN, 1.0, RED);
+  }
 
   cv::imshow("stats",stats_window);
   cv::imshow("current frame",color_frames.newest());
@@ -294,12 +312,12 @@ void motion_detector::draw_hud () {
   hud_draw_cost_estimate.stop();
 }
 
-void motion_detector::run () {
+void motion_detector::run() {
   // prime it by burning some frames
   // the lighting adjusts as the program starts up and this causes spikes
   log("warming up");
   auto warmup_start = uptime();
-  while (uptime() - warmup_start < WARMUP_LENGTH_S) {
+  while (uptime() - warmup_start < os.startup_delay) {
     auto &curr_frame = capture_frame();
     cv::imshow("current frame",curr_frame);
   }
@@ -334,9 +352,9 @@ void motion_detector::run () {
         capture_video("forced");
       }
     }
-
-    if (color_frames.total % 1024 == 0) { // every once in a while check copy threads
+    if (color_frames.total % (4*32)) { // about 4s
       join_finished_asyncs();
+      log_stream.flush();
     }
   } // while
 }
@@ -347,8 +365,8 @@ void motion_detector::process_key(int key)
     [&] (const char *name, bool &z) {
       z = !z;
       std::string nm = name;
-      nm += ":";
-      std::cout << std::setw(32) << nm << format(z) << "\n";
+      nm += ": ";
+      std::cout << std::setw(32) << std::left << nm << format(z) << "\n";
     };
   if ( key == 'q' || key == ESC_KEY) {
     log("exit requested");
@@ -370,23 +388,23 @@ void motion_detector::process_key(int key)
     // handled by the parent (might be in capture_video or run)
     return;
   } else if (key == 'd') {
-    std::cout << "uptime:                   " << uptime() << "s\n";
-    std::cout << "frame index:              " << color_frames.total << "\n";   
+    std::cout << "uptime:                 " << format(uptime()) << " s\n";
+    std::cout << "frame index:            " << color_frames.total << "\n";   
     std::cout << "\n";
-    std::cout << "motion_threshold:         " << format(motion_threshold) << "\n";
+    std::cout << "motion_threshold:       " << format(motion_threshold) << "\n";
     std::cout << "\n";
-    std::cout << "est. motion cost:          " << format(motion_cost_estimate.average_ms(),0,1) << " ms\n";
-    std::cout << "est. draw   cost:          " << format(hud_draw_cost_estimate.average_ms(),0,1) << " ms\n";
-    std::cout << "est. frame ovrhd:          " << format(frame_overhead_estimate.average_ms(),0,1) << " ms\n";
+    std::cout << "est. mdet   cost:       " << format(motion_cost_estimate.average_ms(),0,1) << " ms\n";
+    std::cout << "est. draw   cost:       " << format(hud_draw_cost_estimate.average_ms(),0,1) << " ms\n";
+    std::cout << "est. frame ovrhd:       " << format(frame_overhead_estimate.average_ms(),0,1) << " ms\n";
     std::cout << "\n";
-    std::cout << "hud_enabled               " << format(hud_enabled) << "\n";
-    std::cout << "vidcap_enabled            " << format(vidcap_disabled) << "\n";
+    std::cout << "hud_enabled             " << format(hud_enabled) << "\n";
+    std::cout << "vidcap_disabled         " << format(vidcap_disabled) << "\n";
     std::cout << "motion diffs\n";
-    std::cout << "   buffer avg:        " << format(motion_samples.average()) << "\n";
-    std::cout << "   min:               " << format(min_motion_diff) << "\n";
-    std::cout << "   max:               " << format(max_motion_diff) << "\n";
+    std::cout << "   buffer avg:          " << format(motion_samples.average(),0,3) << "\n";
+    std::cout << "   min:                 " << format(min_motion_diff,0,3) << "\n";
+    std::cout << "   max:                 " << format(max_motion_diff,0,3) << "\n";
     //
-    std::cout << "copy_threads:             " << copy_threads.size() << "\n";
+    std::cout << "copy_threads:           " << copy_threads.size() << "\n";
     for (const auto *ct : copy_threads) {
       std::cout << "  * " << ct->target_file_name << 
         " (" << format(ct->done);
@@ -405,7 +423,7 @@ void motion_detector::process_key(int key)
       "  d     - dumps debug info to stdout\n"
       "  k     - forces recalibration of motion threshold\n"
       "  h     - toggles the stats HUD\n"
-      "  q/ESC - quits\n";
+      "  q/ESC - quits\n"
       "  r/R   - resets the background image with a delay (R for no delay)\n"
       "  v     - disables/enables video recording\n";
   }

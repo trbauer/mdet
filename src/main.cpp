@@ -25,7 +25,7 @@ int main(int argc, char **argv)
     "                                setting this to 0 disables video capture\n" 
     "    --motion-threshold=FLT      sets the motion threshold to a given value\n" 
     "                                this must be value between 0.0 and 255.0;\n" 
-    "                                good values are around 0.5; the program\n"
+    "                                good values are around 0.5 to 2.0; the program\n"
     "                                compares this to the average pixel value\n"
     "                                (0 to 255) in the blurred difference image\n"
     "                                to infer motion; by default the program\n"
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     "                                several possible formats (e.g. H264, X264,\n"
     "                                XVID, MP4V etc...); for an h264 encoder see\n" 
     "                                https://github.com/cisco/openh264/releases\n" 
-    "    --remote-copy-dir=PATH      asynchronously copy videos to this directory\n" 
+    "    --remote-copy=PATH          asynchronously copy videos to this directory\n" 
     "    --startup-delay=INT         delay this many seconds before starting up\n" 
     "                                (defaults to " << os.startup_delay << ")\n" <<
     "  INTERACTIVE OPTIONS (when focused on an OpenCV window)\n"
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
       os.preferred_fourcc = optValStr();
       if (os.preferred_fourcc.size() != 4)
         badOpt("must be four characters");
-    } else if (opt_key == "--remote-copy-dir") {
+    } else if (opt_key == "--remote-copy") {
       os.remote_copy_dir = optValStr();
     } else if (opt_key == "--startup-delay") {
       os.startup_delay = (int)optValInt();

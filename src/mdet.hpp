@@ -16,26 +16,26 @@
 #include <sstream>
 
 struct opts {
-  std::string       log_file_path = "vcap.log";
+  std::string       log_file_path = "mdet.log";
   std::string       remote_copy_dir;
   std::string       preferred_fourcc;
-  int               max_videos = 512; // 30s translates to about 15s video and takes 33mb, so this maxes out at about 20g
+  int               max_videos = 512; // 30s takes about 33mb, so this maxes out at about 20g
+                                      // it's much smaller with H264
+  int               max_video_length = 30;
   int               startup_delay = 5;
-  int               max_video_length = 600;
   // from testing we find these constants (640x480)
   //   covered webcam                  ~15000.0
   //   sitting totally still           ~60000.0
   //   breathing                      ~120000.0
   //   walking into the cube moving   over a million
   // this is for a 640x480 image
-  double            motion_threshold = 0.5;
+  double            motion_threshold = 1.0;
   bool              has_custom_motion_threshold = false;
   bool              headless = false;
 };
 
 static const int TARGET_FPS = 30;
 static const double FRAME_BUDGET_MS = 1000.0/TARGET_FPS;
-static const int WARMUP_LENGTH_S = 3;
 
 static const int ESC_KEY = 0x1B;
 
@@ -241,7 +241,7 @@ struct motion_detector {
 
   bool detecting_motion();
 
-  void draw_hud();
+  void draw_hud(double video_offset = 0.0);
 
   void capture_video(const char *why);
   void capture_video_body(std::string file_name);
