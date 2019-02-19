@@ -32,6 +32,7 @@ struct opts {
   double            motion_threshold = 1.0;
   bool              has_custom_motion_threshold = false;
   bool              headless = false;
+  int               exit_after = 0;
 };
 
 static const int TARGET_FPS = 30;

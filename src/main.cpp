@@ -15,6 +15,7 @@ int main(int argc, char **argv)
     "where\n" 
     "  OPTIONS are:\n" 
     //                                                                              |
+    "    --exit-after=INT            exits after this many seconds\n"
     "    --headless                  don't open any windows to show statistics\n" 
     "    --log-file=PATH             specifies the log file path\n" 
     "                                (defaults to " << os.log_file_path << ")\n" 
@@ -103,6 +104,8 @@ int main(int argc, char **argv)
     if (argstr == "-h" || argstr == "--help") {
       std::cout << USAGE.str();
       exit(EXIT_SUCCESS);
+    } else if (opt_key == "--exit-after") {
+      os.exit_after = (int)optValInt();
     } else if (opt_key == "--headless") {
       forbidsOptValue();
       os.headless = true;

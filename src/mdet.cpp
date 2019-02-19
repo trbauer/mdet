@@ -356,6 +356,10 @@ void motion_detector::run() {
       join_finished_asyncs();
       log_stream.flush();
     }
+    if (os.exit_after != 0 && uptime() > os.exit_after) {
+      exit_detector = true;
+      log("exiting (max time limit reached)");
+    }
   } // while
 }
 
