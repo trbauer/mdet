@@ -17,6 +17,7 @@
 
 struct opts {
   std::string       log_file_path = "mdet.log";
+  std::string       motion_video_dir;
   std::string       remote_copy_dir;
   std::string       preferred_fourcc;
   int               max_videos = 512; // 30s takes about 33mb, so this maxes out at about 20g
@@ -29,7 +30,7 @@ struct opts {
   //   breathing                      ~120000.0
   //   walking into the cube moving   over a million
   // this is for a 640x480 image
-  double            motion_threshold = 1.0;
+  double            motion_threshold = 4.0;
   bool              has_custom_motion_threshold = false;
   bool              headless = false;
   int               exit_after = 0;
@@ -80,10 +81,23 @@ static std::string concat(Ts...ts)
   return ss.str();
 }
 
+
 template <typename...Ts>
 static void fatal(Ts...ts)
 {
-  std::cerr << concat(ts...);
+  auto str = concat(ts...);
+  std::cerr << str;
+
+  // in case of crash during startup we write the result of fatal() to
+  // a different file; then if starting via task manager fails, we can bail
+  {
+    std::ofstream fatal_stream("fatal.log");
+    if (fatal_stream) {
+      fatal_stream << "FATAL: " << str;
+      fatal_stream.flush();
+    }
+  }
+  
   exit(EXIT_FAILURE);
 }
 
@@ -141,10 +155,10 @@ struct numeric_circular_buffer : circular_buffer<T,N>
 {
   double average() const {
     double sum = 0.0f;
-    for (int i = 0; i < total % N; i++) {
+    for (int i = 0; i < total % (N+1); i++) {
       sum += (double)elements[i];
     }
-    return sum / (total % N);
+    return sum / (total % (N+1));
   }
   /*
   double tail_average(int last) const {
@@ -182,9 +196,10 @@ struct time_samples : numeric_circular_buffer<int64_t,N>
   }
 };
 
-static const int MOTION_SAMPLES = 32*16; // about a 16 seconds
+static const int MOTION_SAMPLES = 32*8; // about a 8 seconds
 
-// template <double MOTION_THRESHOLD,IMAGE_TYPE>
+// template <IMAGE_TYPE>
+// template <IMAGE_TYPE=cv::umat> for OpenCL?
 struct motion_detector {
   opts            os;
   std::ostream   &log_stream;
@@ -200,12 +215,11 @@ struct motion_detector {
   time_samples<64> hud_draw_cost_estimate;
   time_samples<64> frame_overhead_estimate;
 
-  //
+  // pre-buffering so we can see stuff before the motion
   circular_buffer<image,PREVIOUS_FRAMES> color_frames;
 
   time_point startup_time; // for uptime()
   double min_motion_diff = DBL_MAX, max_motion_diff = 0.0f;
-  double estimated_capture_frequency = 0.0f;
 
   // not sure if saving these is helpful; certainly if they pin GPU memory
   // it's less work to thrash new memory

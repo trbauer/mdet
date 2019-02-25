@@ -1,4 +1,5 @@
 #include "mdet.hpp"
+#include "fs.hpp"
 
 #include <ctime>
 
@@ -20,15 +21,32 @@ motion_detector::motion_detector(
     log("video capture disabled (max video length <= 0)");
   motion_threshold = os.motion_threshold;
   startup_time = now();
+  std::stringstream ss;
+  ss <<
+    "OPTIONS:\n" <<
+    "  motion_threshold:    " << format(motion_threshold,0,3) << "\n" <<
+    "  hud_enabled:         " << format(hud_enabled) << "\n" <<
+    "  os.log_file_path:    " << os.log_file_path << "\n" <<
+    "  os.motion_video_dir: " << os.motion_video_dir << "\n" <<
+    "  os.remote_copy_dir:  " << os.remote_copy_dir << "\n" <<
+    "  os.preferred_fourcc: " << os.preferred_fourcc << "\n" <<
+    "  os.max_videos:       " << os.max_videos << "\n" <<
+    "  os.max_video_length: " << os.max_video_length << "\n" <<
+    "  os.startup_delay:    " << os.startup_delay << "\n" <<
+    "  os.exit_after:       " << os.exit_after << "\n" <<
+    "\n";
+  log(ss.str());
 } 
 
 motion_detector::~motion_detector() {
-  std::cout << "shutting down\n";
+  log("shutting down");
   for (copy_thread *ct : copy_threads) {
-    std::cout << "waiting for copy thread\n";
+    log("waiting for copy thread");
     ct->thread.join();
   }
   cv::destroyAllWindows();
+  log("shut down complete");
+  log_stream.flush();
 }
 
 double motion_detector::uptime() const {
@@ -51,7 +69,8 @@ void motion_detector::reset_background(int countdown_s, const char *why) {
   cv::GaussianBlur(
     background_frame, background_frame_gray_blurred, cv::Size(21,21), 0.0);
 
-  cv::imshow("background frame",background_frame_gray_blurred);
+  if (hud_enabled)
+    cv::imshow("background frame",background_frame_gray_blurred);
 }
 
 void motion_detector::join_finished_asyncs() {
@@ -133,13 +152,13 @@ bool motion_detector::detecting_motion() {
 
  void motion_detector::capture_video(const char *why) {
   if (vidcap_disabled || os.max_video_length <= 0) {
-    log("aborting capture (vidcap disabled)");
+    log("aborting capture (vid. capture disabled)");
     return;
   }
   int video_index = next_video_index++;
   std::stringstream ss;
-  ss << "video" << std::setw(5) << std::setfill('0') << video_index << ".mp4";
-  auto file_name = ss.str();
+  ss << "motion" << std::setw(5) << std::setfill('0') << video_index << ".mp4";
+  auto file_name = fs::join_path(os.motion_video_dir,ss.str());
   log("capturing video (",why,") as ", file_name);
   capture_video_body(file_name);
   start_copy_to_remote_async(file_name);
@@ -190,10 +209,12 @@ void motion_detector::capture_video_body(std::string file_name) {
     }
   }
 
+  // TODO: this is busted, can't figure out why
+  //
   // write the past frames
-  color_frames.for_each([&](const image &color_frame) {
-    vw.write(color_frame);
-  });
+  // color_frames.for_each([&](const image &color_frame) {
+  //  vw.write(color_frame);
+  // });
 
   double last_elapsed = 0.0f;
   auto video_started = uptime();
@@ -239,7 +260,7 @@ void motion_detector::calibrate_motion_threshold()
   log("     setting threshold to ",format(motion_threshold,0,3));
 }
 
-void motion_detector::draw_hud (double video_offset) {
+void motion_detector::draw_hud(double video_offset) {
   hud_draw_cost_estimate.start();
 
   // zero it
@@ -297,7 +318,8 @@ void motion_detector::draw_hud (double video_offset) {
   auto last_motion = motion_samples.newest();
   auto s = format(last_motion,0,3);
   cv::putText(stats_window, s, 
-    cv::Point(20,20), cv::FONT_HERSHEY_PLAIN, 1.0, colorForValue(last_motion));
+    cv::Point(20,20), cv::FONT_HERSHEY_PLAIN, 1.0, 
+    last_motion > motion_threshold ? RED : YELLOW);
   if (video_offset != 0.0) {
     std::stringstream voff;
     voff << "recording (" << format(video_offset,0,1) << ")";
@@ -432,7 +454,6 @@ void motion_detector::process_key(int key)
       "  v     - disables/enables video recording\n";
   }
 }
-
 
 void motion_detector::logs(const std::string &msg)
 {

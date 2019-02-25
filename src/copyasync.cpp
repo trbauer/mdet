@@ -1,26 +1,15 @@
 #include "mdet.hpp"
+#include "fs.hpp"
 
 #include <string>
 #include <thread>
-#if __has_include(<filesystem>)
-#include <filesystem>
-// different versions of VS2017 have this in different namespaces
-// even with the top-level header
-// namespace fs = std::filesystem;
-namespace fs = std::experimental::filesystem;
-#elif __has_include(<experimental/filesystem>)
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#else
-#error "cannot find a std::filesystem header"
-#endif
-#include <system_error>
 
 
 static void run_copy_thread(copy_thread *ct) {
   ct->run();
 }
 
+/*
 static std::string make_target_path(
   std::string _file_name,
   std::string _target_dir)
@@ -44,28 +33,20 @@ static std::string make_target_path(
   }
   return remote_file;
 }
+*/
 
 copy_thread::copy_thread(
-  std::string _file_name,
-  std::string _to_dir) 
+  std::string _file_name, // video00001.mp4
+  std::string _to_dir)    // t:\mybackup
     : source_file_name(_file_name)
-    , target_file_name(make_target_path(_file_name,_to_dir))
+    , target_file_name(fs::join_path(_to_dir,_file_name))
     , thread(run_copy_thread, this)
 {
 }
 
 void copy_thread::run() {
-
-  try {
-    fs::copy(
-      source_file_name,
-      target_file_name,
-      fs::copy_options::overwrite_existing);
-  } catch(fs::filesystem_error &fse) {
-    error_message = fse.what();
-  } catch(...) {
-    error_message = "copy failed (unknown error)";
-  }
+  fs::copy_overwrite_with_error_message(
+    source_file_name, target_file_name, error_message);
   done = true;
 }
 
