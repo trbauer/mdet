@@ -12,35 +12,35 @@ static const int ROTATING_LOG_MAX_DAYS = 5;
 static void setup_rotating_logs(opts &os);
 
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
   opts os;
-  
+
 
   std::stringstream USAGE;
   USAGE <<
     "Motion Detection (" << MDET_VERSION_STRING << ")\n" <<
-    "usage: " << argv[0] << " OPTIONS\n" 
-    "where\n" 
-    "  OPTIONS are:\n" 
+    "usage: " << argv[0] << " OPTIONS\n"
+    "where\n"
+    "  OPTIONS are:\n"
     //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||v 80 cols
     "    --exit-after=INT            exits after this many seconds\n"
-    "    --headless                  don't open any windows to show statistics\n" 
-    "    --log-file=PATH             specifies the log file path\n" 
-    "                                (defaults to " << os.log_file_path << ")\n" 
+    "    --headless                  don't open any windows to show statistics\n"
+    "    --log-file=PATH             specifies the log file path\n"
+    "                                (defaults to " << os.log_file_path << ")\n"
     "    --log-rotate                enables log rotation mode; we use the day\n"
     "                                of the year to choose the output directories\n"
     "                                rotating every " << ROTATING_LOG_MAX_DAYS << " days and overwriting old\n"
     "                                output; this also impacts --remote-copy\n"
     "                                NOTE: a successive run will not pre-delete old\n"
     "                                motion videos, so check the file timestamps\n"
-    "    --max-videos=INT            exit after creating this many videos\n" 
-    "                                (defaults to " << os.max_videos << ")\n" 
+    "    --max-videos=INT            exit after creating this many videos\n"
+    "                                (defaults to " << os.max_videos << ")\n"
     "    --max-video-length=INT      maximum length in seconds for video captures\n"
-    "                                (defaults to " << os.max_video_length << ")\n" 
-    "                                setting this to 0 disables video capture\n" 
-    "    --motion-threshold=FLT      sets the motion threshold to a given value\n" 
-    "                                this must be value between 0.0 and 255.0;\n" 
+    "                                (defaults to " << os.max_video_length << ")\n"
+    "                                setting this to 0 disables video capture\n"
+    "    --motion-threshold=FLT      sets the motion threshold to a given value\n"
+    "                                this must be value between 0.0 and 255.0;\n"
     "                                good values are around 0.5 to 2.0; the program\n"
     "                                compares this to the average pixel value\n"
     "                                (0 to 255) in the blurred difference image\n"
@@ -51,10 +51,10 @@ int main(int argc, char **argv)
     "                                (passed to cv::VideoWriter); without this set\n"
     "                                (or if this code fails)  the program tries\n"
     "                                several possible formats (e.g. H264, X264,\n"
-    "                                XVID, MP4V etc...); for an h264 encoder see\n" 
-    "                                https://github.com/cisco/openh264/releases\n" 
-    "    --remote-copy=PATH          asynchronously copy videos to this directory\n" 
-    "    --startup-delay=INT         delay this many seconds before starting up\n" 
+    "                                XVID, MP4V etc...); for an h264 encoder see\n"
+    "                                https://github.com/cisco/openh264/releases\n"
+    "    --remote-copy=PATH          asynchronously copy videos to this directory\n"
+    "    --startup-delay=INT         delay this many seconds before starting up\n"
     "                                (defaults to " << os.startup_delay << ")\n" <<
     "  INTERACTIVE OPTIONS (when focused on an OpenCV window)\n"
     "    type '?' to emit help to the console on which keys do what\n"
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
       needsOptValue();
       int64_t value = 0;
       try {
-        if (opt_value.size() > 2 && 
+        if (opt_value.size() > 2 &&
           (opt_value.substr(0,2) == "0x" || opt_value.substr(0,2) == "0X"))
           value =(int64_t)std::stoll(opt_value.substr(2),nullptr,16);
         else
@@ -161,15 +161,19 @@ int main(int argc, char **argv)
   }
 
 //  cv::dumpOpenCLInformation();
+
+  // remove the file if it exists so that a new file will be created with
+  // a fresh creation time-stamp
+  fs::remove_if_exists(os.log_file_path);
   std::ofstream log_file(os.log_file_path);
   if (!log_file.is_open()) {
     std::cerr << "failed to open log file\n";
     exit(EXIT_FAILURE);
   }
-  
+
   motion_detector s(log_file,os);
   s.run();
-  
+
   return EXIT_SUCCESS;
 }
 
@@ -200,7 +204,7 @@ void setup_rotating_logs(opts &os)
   day_of_year %= ROTATING_LOG_MAX_DAYS;
   std::stringstream ss;
   ss << "logs";
-  ss << std::setfill('0') << std::setw(5) << 
+  ss << std::setfill('0') << std::setw(5) <<
     (day_of_year % ROTATING_LOG_MAX_DAYS);
   std::string error;
 
@@ -211,7 +215,7 @@ void setup_rotating_logs(opts &os)
   os.motion_video_dir = ss.str();
 
   if (!fs::is_absolute_path(os.log_file_path)) {
-    os.log_file_path = 
+    os.log_file_path =
       fs::join_path(ss.str(),os.log_file_path);
   } else {
     fatal("--log-file may not be an absolute path in rotating-log mode");

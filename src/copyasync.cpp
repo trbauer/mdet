@@ -45,6 +45,7 @@ copy_thread::copy_thread(
 }
 
 void copy_thread::run() {
+  fs::remove_if_exists(target_file_name);
   fs::copy_overwrite_with_error_message(
     source_file_name, target_file_name, error_message);
   done = true;

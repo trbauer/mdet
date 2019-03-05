@@ -97,7 +97,7 @@ static void fatal(Ts...ts)
       fatal_stream.flush();
     }
   }
-  
+
   exit(EXIT_FAILURE);
 }
 
@@ -181,11 +181,11 @@ template <int N>
 struct time_samples : numeric_circular_buffer<int64_t,N>
 {
   time_point start_time;
-  
+
   time_samples() { }
   void start() {start_time = now();}
   void stop() {
-    std::chrono::microseconds elapsed = 
+    std::chrono::microseconds elapsed =
       std::chrono::duration_cast<std::chrono::microseconds>(
         now() - start_time);
     add(elapsed.count());
@@ -208,7 +208,7 @@ struct motion_detector {
   int next_video_index = 0;
 
   double motion_threshold;
-  
+
   numeric_circular_buffer<double,MOTION_SAMPLES>     motion_samples;
 
   time_samples<64> motion_cost_estimate;
@@ -239,7 +239,7 @@ struct motion_detector {
   bool exit_detector = false;
 
   motion_detector(
-    std::ostream &_log_stream, 
+    std::ostream &_log_stream,
     const opts &os);
   ~motion_detector();
 
@@ -250,7 +250,7 @@ struct motion_detector {
   void start_copy_to_remote_async(std::string file_name);
 
   const image &capture_frame(cv::VideoWriter *vw = nullptr);
-  
+
   void calibrate_motion_threshold();
 
 

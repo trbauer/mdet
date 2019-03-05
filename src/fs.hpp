@@ -4,11 +4,11 @@
 #include <string>
 
 namespace fs {
-  // Wrapper to std::filesystem since it's still a little skitzo on some 
+  // Wrapper to std::filesystem since it's still a little skitzo on some
   // compilers (*cough* *cough* Visual Studio); it's been moved around
   // a bit or even absent.   My MinGW version also seemed to totally omit it.
   //
-  // Once std::filesystem is a little more stable, we'll just re-alias 
+  // Once std::filesystem is a little more stable, we'll just re-alias
   // everything and simplify this part. E.g.
   //    namespace fs = std::filesystem
   //
@@ -36,6 +36,9 @@ namespace fs {
 
   // std::filesystem::path::is_absolute
   bool directory_exists(const path &p);
+
+  // removes a file if already exists (e.g. so we get a fresh create stamp)
+  void remove_if_exists(const path &p);
 } // fs::
 
 #endif

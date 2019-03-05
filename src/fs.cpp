@@ -12,7 +12,7 @@ namespace sfs = std::experimental::filesystem;
 #else
 #error "cannot find a std::filesystem header"
 #endif
-
+#include <iostream>
 
 // combines dir and file into platform specific dir/file
 // careful to deal with possible trailing / (or \\ on windows)
@@ -45,7 +45,7 @@ void fs::copy_overwrite_with_error_message(
 }
 
 void fs::create_directory_if_absent(
-  const fs::path &dir, 
+  const fs::path &dir,
   std::string &error_message)
 {
   if (directory_exists(dir)) {
@@ -67,4 +67,14 @@ bool fs::is_absolute_path(const fs::path &p) {
 
 bool fs::directory_exists(const fs::path &p) {
   return sfs::is_directory(sfs::path(p));
+}
+
+void fs::remove_if_exists(const fs::path &p) {
+  if (sfs::is_regular_file(sfs::path(p))) {
+    try {
+      sfs::remove(p);
+    } catch (...) {
+      std::cerr << "fs::remove_if_exists: file removal failed\n";
+    }
+  }
 }

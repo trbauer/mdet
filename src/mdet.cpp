@@ -6,8 +6,8 @@
 
 motion_detector::motion_detector(
   std::ostream &_log_stream,
-  const opts &_os) 
-  : os(_os) 
+  const opts &_os)
+  : os(_os)
   , vc(0)
   , log_stream(_log_stream)
   , stats_window(480,640,CV_8UC3) {
@@ -36,7 +36,7 @@ motion_detector::motion_detector(
     "  os.exit_after:       " << os.exit_after << "\n" <<
     "\n";
   log(ss.str());
-} 
+}
 
 motion_detector::~motion_detector() {
   log("shutting down");
@@ -58,7 +58,7 @@ double motion_detector::uptime() const {
 
 void motion_detector::reset_background(int countdown_s, const char *why) {
   log("resetting background (",why,")");
-  for (int i = 0; i < countdown_s && !exit_detector; i++) {     
+  for (int i = 0; i < countdown_s && !exit_detector; i++) {
     std::cout << (countdown_s - i) << "...\n";
     auto key = cv::waitKey(1000);
     process_key(key);
@@ -120,8 +120,8 @@ bool motion_detector::detecting_motion() {
 
   cv::cvtColor(color_frames.newest(),color_to_gray,cv::COLOR_BGR2GRAY);
   cv::GaussianBlur(
-    color_to_gray, 
-    gray_to_blurred, 
+    color_to_gray,
+    gray_to_blurred,
     cv::Size(21,21), 0.0);
 
   cv::absdiff(gray_to_blurred, background_frame_gray_blurred, absdiff);
@@ -141,7 +141,7 @@ bool motion_detector::detecting_motion() {
 
   bool motion_detected = adiff_ratio > motion_threshold;
   if (motion_detected) {
-    log("motion detected (", format(adiff_ratio,0,3), " > ", 
+    log("motion detected (", format(adiff_ratio,0,3), " > ",
       format(motion_threshold,0,3), ")");
   }
 
@@ -160,6 +160,7 @@ bool motion_detector::detecting_motion() {
   ss << "motion" << std::setw(5) << std::setfill('0') << video_index << ".mp4";
   auto file_name = fs::join_path(os.motion_video_dir,ss.str());
   log("capturing video (",why,") as ", file_name);
+  fs::remove_if_exists(file_name);
   capture_video_body(file_name);
   start_copy_to_remote_async(file_name);
 }
@@ -167,7 +168,7 @@ bool motion_detector::detecting_motion() {
 void motion_detector::capture_video_body(std::string file_name) {
   cv::VideoWriter vw;
 
-  auto open_video_output = 
+  auto open_video_output =
     [&](const char *ccs)
     {
       int four_cc = cv::VideoWriter::fourcc(
@@ -176,10 +177,10 @@ void motion_detector::capture_video_body(std::string file_name) {
             ccs[2],
             ccs[3]);
       vw.open(
-        file_name, 
-        four_cc, 
-        (double)TARGET_FPS, 
-        color_frames.newest().size(), 
+        file_name,
+        four_cc,
+        (double)TARGET_FPS,
+        color_frames.newest().size(),
         true);
       return vw.isOpened();
     };
@@ -191,7 +192,7 @@ void motion_detector::capture_video_body(std::string file_name) {
     "XVID",
     "MP4V",
   };
-    
+
   if (!os.preferred_fourcc.empty() && open_video_output(os.preferred_fourcc.c_str())) {
     log("opened video (in preferred format)");
   } else {
@@ -218,7 +219,7 @@ void motion_detector::capture_video_body(std::string file_name) {
 
   double last_elapsed = 0.0f;
   auto video_started = uptime();
- 
+
   while (true) {
     capture_frame(&vw);
 
@@ -283,14 +284,14 @@ void motion_detector::draw_hud(double video_offset) {
     toInt(BASE_Y - 1.0),       toInt(BASE_X - 1.0),
     toInt(GRAPH_WIDTH + 2.0),  toInt(GRAPH_HEIGHT + 2.0));
   cv::rectangle(stats_window, GRAPH_BORDER, WHITE);
-  auto valueToHeight = 
+  auto valueToHeight =
     [&] (double value) {
       const double MAX = 1.5*motion_threshold;
-      return BASE_Y + GRAPH_HEIGHT - 
+      return BASE_Y + GRAPH_HEIGHT -
         (std::min(value,MAX)/MAX)*GRAPH_HEIGHT;
     };
   auto threshold_y = valueToHeight(motion_threshold);
-  cv::line(stats_window, 
+  cv::line(stats_window,
     point(BASE_X,               threshold_y),
     point(BASE_X + GRAPH_WIDTH, threshold_y),
     YELLOW);
@@ -307,7 +308,7 @@ void motion_detector::draw_hud(double video_offset) {
     [&] (const double &y) {
       cv::Point this_point = point(last.x + DX, valueToHeight(y));
 
-      // auto &color = 
+      // auto &color =
       //   d >= motion_threshold ? RED :
       //   d >= 0.8*motion_threshold ? YELLOW :
       //   GREEN;
@@ -317,13 +318,13 @@ void motion_detector::draw_hud(double video_offset) {
 
   auto last_motion = motion_samples.newest();
   auto s = format(last_motion,0,3);
-  cv::putText(stats_window, s, 
-    cv::Point(20,20), cv::FONT_HERSHEY_PLAIN, 1.0, 
+  cv::putText(stats_window, s,
+    cv::Point(20,20), cv::FONT_HERSHEY_PLAIN, 1.0,
     last_motion > motion_threshold ? RED : YELLOW);
   if (video_offset != 0.0) {
     std::stringstream voff;
     voff << "recording (" << format(video_offset,0,1) << ")";
-    cv::putText(stats_window, voff.str(), 
+    cv::putText(stats_window, voff.str(),
       cv::Point(20,60), cv::FONT_HERSHEY_PLAIN, 1.0, RED);
   }
 
@@ -341,7 +342,8 @@ void motion_detector::run() {
   auto warmup_start = uptime();
   while (uptime() - warmup_start < os.startup_delay) {
     auto &curr_frame = capture_frame();
-    cv::imshow("current frame",curr_frame);
+    if (!os.headless)
+      cv::imshow("current frame",curr_frame);
   }
 
   reset_background(0,"initial background");
@@ -387,7 +389,7 @@ void motion_detector::run() {
 
 void motion_detector::process_key(int key)
 {
-  auto toggle = 
+  auto toggle =
     [&] (const char *name, bool &z) {
       z = !z;
       std::string nm = name;
@@ -415,7 +417,7 @@ void motion_detector::process_key(int key)
     return;
   } else if (key == 'd') {
     std::cout << "uptime:                 " << format(uptime()) << " s\n";
-    std::cout << "frame index:            " << color_frames.total << "\n";   
+    std::cout << "frame index:            " << color_frames.total << "\n";
     std::cout << "\n";
     std::cout << "motion_threshold:       " << format(motion_threshold) << "\n";
     std::cout << "\n";
@@ -432,7 +434,7 @@ void motion_detector::process_key(int key)
     //
     std::cout << "copy_threads:           " << copy_threads.size() << "\n";
     for (const auto *ct : copy_threads) {
-      std::cout << "  * " << ct->target_file_name << 
+      std::cout << "  * " << ct->target_file_name <<
         " (" << format(ct->done);
       if (ct->done && !ct->error_message.empty()) {
         std::cout << " " << ct->error_message;
@@ -473,7 +475,7 @@ void motion_detector::logs(const std::string &msg)
   std::strftime(tbuf, sizeof(tbuf), "%Y-%m-%d-%H:%M:%S",&t);
 
   // appending milliseconds: this is hard; strftime won't work and
-  // gettimeofday is Unix only.  So we will use the fractional part of 
+  // gettimeofday is Unix only.  So we will use the fractional part of
   // uptime.  The intent is to show relative differences.  So the uptime
   // clock in seconds is good enough.
   //
@@ -481,13 +483,13 @@ void motion_detector::logs(const std::string &msg)
   double up = uptime();
   up = up - (int64_t)up;
   std::stringstream ss_message;
-  ss_message << 
+  ss_message <<
     tbuf <<
     std::fixed << std::setprecision(3) << up;
   ss_message << ": " << msg << "\n";
   auto message = ss_message.str();
   log_stream << message;
-  std::cout << message; 
+  std::cout << message;
 }
 
 void motion_detector::fatals(const std::string &msg)
