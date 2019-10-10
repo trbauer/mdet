@@ -12,8 +12,10 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <string>
 #include <sstream>
+#include <thread>
 
 struct opts {
   std::string       log_file_path = "mdet.log";
@@ -124,6 +126,8 @@ struct circular_buffer {
     total++;
     return *t;
   }
+
+  uint64_t total_elems() const {return total;}
   void add(const T &t) {
     add() = t;
   }
@@ -155,10 +159,10 @@ struct numeric_circular_buffer : circular_buffer<T,N>
 {
   double average() const {
     double sum = 0.0f;
-    for (int i = 0; i < total % (N+1); i++) {
-      sum += (double)elements[i];
+    for (int i = 0; i < this->total % (N+1); i++) {
+      sum += (double)this->elements[i];
     }
-    return sum / (total % (N+1));
+    return sum / (this->total % (N+1));
   }
   /*
   double tail_average(int last) const {
@@ -188,11 +192,11 @@ struct time_samples : numeric_circular_buffer<int64_t,N>
     std::chrono::microseconds elapsed =
       std::chrono::duration_cast<std::chrono::microseconds>(
         now() - start_time);
-    add(elapsed.count());
+    this->add(elapsed.count());
   }
 
   double average_ms() const {
-    return average() / 1000.0;
+    return this->average() / 1000.0;
   }
 };
 
